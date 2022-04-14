@@ -1,3 +1,4 @@
+## FOR WINDOWS ##
 ## This parser doesn't actually gather key information, but would record connections being made over defined SSH/SCP/SFTP ports
 ## It displays lines from the Firewall log which contain the specified ports as well as cuts out any local IPv6 connections being made
 
