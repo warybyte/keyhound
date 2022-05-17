@@ -11,10 +11,6 @@
 # This string value is compared to the keyhound.log file to see if it already exists. If not, it will be 
 # appended to the log. If it has been previously recorded, the value is discarded.
 
-# --------------------------------------------------------------------------------------------------------- 
-# Notes:
-# --------------------------------------------------------------------------------------------------------- 
-# 1.0 SSHD log level must be set to AUTHPRIV in Redhat to pickup the key fingerprints. AUTH isn't enough
 
 # ---------------------------------------------------------------------------------------------------------
 # VARIABLE NOTES
@@ -26,26 +22,41 @@
 
 if ! test -f '/var/log/keyhound.log';
 then
-	touch /var/log/keyhound.log;
-	chmod 600 /var/log/keyhound.log;
+        touch /var/log/keyhound.log;
+        chmod 600 /var/log/keyhound.log;
 fi
 
 cdate=$(date +%b" "%e);
-logdump=$(grep "$cdate" /var/log/secure | grep publickey | sed s/" "/,/g | awk -F ',' '{print $9","$11","$16}' | sort -u); 
-keyhoundlog=/var/log/keyhound.log
+moredate=$(date +%F);
+logdump=$(grep "$cdate" /var/log/secure | grep publickey | sed s/" "/,/g | awk -F ',' '{print $9","$11","$16}' | sort -u);
+keyhoundlog=/var/log/keyhound.log;
 
 # Append new connections to keyhound.log
 
-for record in $(echo $logdump); 
+for record in $(echo $logdump);
 do
-   # test
-   echo $record;
-   grep $record $keyhoundlog; 
+   # test if log dump (usr,dst,key) exists
+   grep $record $keyhoundlog;
 
-   if [[ $? -eq 1 ]]; 
-   then 
-      echo $record >> $keyhoundlog; 
-   fi; 
+   if [[ $? -eq 1 ]];
+   then
+      # if new, log it
+      echo "$moredate,$record" >> $keyhoundlog;
+   else
+      # set timestamps along with their epochs
+      olddate=$(grep $record $keyhoundlog | awk -F ',' '{print $1}');
+      oldconv=$(date -d $olddate +%s);
+      curconv=$(date -d $moredate +%s);
+      
+      # sed has trouble parsing the full record with fingerprint, so I'm clipping the fingerprint here since I'm already in the loop
+      cliprecord=$(echo $record | awk -F ',' '{print $1","$2}')
+
+      if [ $curconv -ge $oldconv ];
+      then
+         # replace old timestamp with new
+         sed -i s/"$olddate,$cliprecord"/"$moredate,$cliprecord"/g /var/log/keyhound.log;
+      fi;
+   fi;
 done
 
 # Cleanup vars
